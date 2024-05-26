@@ -1,0 +1,32 @@
+module Governance {
+    use 0x1::Token;
+
+    struct Proposal has key {
+        id: u64,
+        description: vector<u8>,
+        votes_for: u64,
+        votes_against: u64,
+        executed: bool,
+    }
+
+    public fun create_proposal(account: &signer, id: u64, description: vector<u8>) {
+        move_to(account, Proposal { id, description, votes_for: 0, votes_against: 0, executed: false });
+    }
+
+    public fun vote(account: &signer, proposal_id: u64, support: bool) {
+        let proposal = borrow_global_mut<Proposal>(proposal_id);
+        if (support) {
+            proposal.votes_for = proposal.votes_for + 1;
+        } else {
+            proposal.votes_against = proposal.votes_against + 1;
+        }
+    }
+
+    public fun execute_proposal(account: &signer, proposal_id: u64) {
+        let proposal = borrow_global_mut<Proposal>(proposal_id);
+        assert!(!proposal.executed, 1);
+        assert!(proposal.votes_for > proposal.votes_against, 2);
+        proposal.executed = true;
+        // Execute the proposal logic
+    }
+}
