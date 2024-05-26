@@ -1,7 +1,34 @@
-module Governance {
-    use 0x1::Token;
+/*
+Proposal and Voting System:
 
-    struct Proposal has key {
+Proposals can be created by users with unique IDs and descriptions.
+Users can vote on proposals, with their votes tracked to prevent multiple voting.
+Proposals can be executed if they receive more votes in favor than against.
+Token Rewards:
+
+Users are rewarded with tokens for creating proposals and voting.
+Mock implementation for token minting and transferring to illustrate the reward mechanism.
+Voting Tracking:
+
+The system checks if an account has already voted on a specific proposal to prevent multiple votes from the same account.
+Execution Logic:
+
+Placeholder for proposal execution logic, which can include token distribution or implementing features based on the proposal.
+This contract aligns with the goals described in the white paper by fostering community participation, providing incentives for engagement, and ensuring a transparent and fair governance process.
+
+
+*/
+
+module governance::Governance {
+
+    use sui::token::{Token};
+    use sui::object::{Object, gen_id};
+    use sui::account::{Account};
+    use sui::execution_context::ExecutionContext;
+    use sui::vector::Vector;
+    use sui::tx_context::TxContext;
+
+    struct Proposal has key, store {
         id: u64,
         description: vector<u8>,
         votes_for: u64,
@@ -9,24 +36,85 @@ module Governance {
         executed: bool,
     }
 
-    public fun create_proposal(account: &signer, id: u64, description: vector<u8>) {
-        move_to(account, Proposal { id, description, votes_for: 0, votes_against: 0, executed: false });
+    struct Vote has key, store {
+        proposal_id: u64,
+        account: address,
+        support: bool,
     }
 
-    public fun vote(account: &signer, proposal_id: u64, support: bool) {
+    public entry fun create_proposal(account: &signer, id: u64, description: vector<u8>, ctx: &mut TxContext) {
+        let proposal = Proposal {
+            id,
+            description,
+            votes_for: 0,
+            votes_against: 0,
+            executed: false,
+        };
+        move_to(account, proposal);
+        reward_proposal_creation(account, ctx);
+    }
+
+    public entry fun vote(account: &signer, proposal_id: u64, support: bool, ctx: &mut TxContext) {
+        let address = signer::address_of(account);
         let proposal = borrow_global_mut<Proposal>(proposal_id);
+
+        assert!(!has_voted(address, proposal_id), 1);
+
         if (support) {
             proposal.votes_for = proposal.votes_for + 1;
         } else {
             proposal.votes_against = proposal.votes_against + 1;
         }
+
+        let vote = Vote {
+            proposal_id,
+            account: address,
+            support,
+        };
+        move_to(account, vote);
+        reward_voting(account, ctx);
     }
 
-    public fun execute_proposal(account: &signer, proposal_id: u64) {
+    public entry fun execute_proposal(account: &signer, proposal_id: u64, ctx: &mut TxContext) {
         let proposal = borrow_global_mut<Proposal>(proposal_id);
-        assert!(!proposal.executed, 1);
-        assert!(proposal.votes_for > proposal.votes_against, 2);
+        assert!(!proposal.executed, 2);
+        assert!(proposal.votes_for > proposal.votes_against, 3);
         proposal.executed = true;
-        // Execute the proposal logic
+        
+        // Proposal execution logic, e.g., token distribution, feature implementation, etc.
+        // execute_proposal_logic(proposal_id);
+    }
+
+    public fun has_voted(account: address, proposal_id: u64): bool {
+        let votes = borrow_global_vector<Vote>();
+        Vector::exists(votes, |v| v.proposal_id == proposal_id && v.account == account)
+    }
+
+    // Additional function to reward users for creating proposals
+    public entry fun reward_proposal_creation(account: &signer, ctx: &mut TxContext) {
+        let reward_amount: u64 = 10; // Example reward amount for creating a proposal
+        token::Token::mint(account, reward_amount, ctx);
+    }
+
+    // Additional function to reward users for voting
+    public entry fun reward_voting(account: &signer, ctx: &mut TxContext) {
+        let reward_amount: u64 = 5; // Example reward amount for voting
+        token::Token::mint(account, reward_amount, ctx);
+    }
+
+    // Mock function for minting tokens
+    module sui::token {
+        public entry fun mint(account: &signer, amount: u64, ctx: &mut TxContext) {
+            let token = borrow_global_mut<Token>(signer::address_of(account));
+            token.supply = token.supply + amount;
+            emit<MintEvent>(MintEvent { account: signer::address_of(account), amount });
+        }
+    }
+
+    // Generate unique ID (mock example)
+    module sui::object {
+        public fun gen_id(): u64 {
+            0 // Example placeholder logic
+        }
     }
 }
