@@ -123,3 +123,94 @@ module governance::Governance {
         Token::mint(account, reward_amount, ctx);
     }
 }
+
+
+module governance::EnhancedDAO {
+    use sui::object::{Self, ID, UID};
+    use sui::tx_context::TxContext;
+    use sui::event::emit;
+    use sui::signer::Signer;
+
+    struct Proposal has key, store {
+        id: UID,
+        description: vector<u8>,
+        votes_for: u64,
+        votes_against: u64,
+        executed: bool,
+    }
+
+    struct Vote has key, store {
+        proposal_id: UID,
+        voter: address,
+        support: bool,
+        weight: u64,
+    }
+
+    struct Delegate has key, store {
+        id: UID,
+        delegate: address,
+    }
+
+    struct CreateProposalEvent has key {
+        proposal_id: UID,
+        creator: address,
+        description: vector<u8>,
+    }
+
+    struct VoteEvent has key {
+        proposal_id: UID,
+        voter: address,
+        support: bool,
+        weight: u64,
+    }
+
+    struct ExecuteProposalEvent has key {
+        proposal_id: UID,
+        executor: address,
+    }
+
+    // Create a new proposal
+    public entry fun create_proposal(account: &signer, description: vector<u8>, ctx: &mut TxContext) {
+        let proposal_id = tx_context::new_id(ctx);
+        let proposal = Proposal {
+            id: proposal_id,
+            description,
+            votes_for: 0,
+            votes_against: 0,
+            executed: false,
+        };
+        move_to(account, proposal);
+        emit<CreateProposalEvent>(CreateProposalEvent { proposal_id, creator: signer::address_of(account), description });
+    }
+
+    // Vote on a proposal with delegated democracy
+    public entry fun vote(account: &signer, proposal_id: UID, support: bool, weight: u64, ctx: &mut TxContext) {
+        let vote = Vote {
+            proposal_id,
+            voter: signer::address_of(account),
+            support,
+            weight,
+        };
+        move_to(account, vote);
+
+        let proposal = borrow_global_mut<Proposal>(proposal_id);
+        if support {
+            proposal.votes_for = proposal.votes_for + weight;
+        } else {
+            proposal.votes_against = proposal.votes_against + weight;
+        }
+
+        emit<VoteEvent>(VoteEvent { proposal_id, voter: signer::address_of(account), support, weight });
+    }
+
+    // Execute a proposal
+    public entry fun execute_proposal(account: &signer, proposal_id: UID, ctx: &mut TxContext) {
+        let proposal = borrow_global_mut<Proposal>(proposal_id);
+        assert!(!proposal.executed, "Proposal already executed");
+        assert!(proposal.votes_for > proposal.votes_against, "Not enough votes to execute");
+
+        proposal.executed = true;
+        emit<ExecuteProposalEvent>(ExecuteProposalEvent { proposal_id, executor: signer::address_of(account) });
+        // Add custom logic for proposal execution
+    }
+}
