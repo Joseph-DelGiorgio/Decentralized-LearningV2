@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Contract, Signer } from 'sui-move'; // Import SUI Move contract and signer
+import { Contract, Signer } from 'sui-move';
 import './App.css';
+import UserAddressInput from './components/UserAddressInput';
+import UserBalance from './components/UserBalance';
+import TokenMinting from './components/TokenMinting';
+import DAOProposals from './components/DAOProposals';
+import Staking from './components/Staking';
+import UserInfo from './components/UserInfo';
 
 function App() {
   const [contract, setContract] = useState(null);
@@ -8,7 +14,7 @@ function App() {
   const [userAddress, setUserAddress] = useState('');
   const [userBalance, setUserBalance] = useState(0);
   const [tokenMinted, setTokenMinted] = useState(false);
-  const [canMint, setCanMint] = useState(false); // State to track if user can mint coins
+  const [canMint, setCanMint] = useState(false);
   const [daoProposals, setDAOProposals] = useState([]);
   const [selectedProposal, setSelectedProposal] = useState(null);
   const [stakedTokens, setStakedTokens] = useState(0);
@@ -23,19 +29,13 @@ function App() {
 
   useEffect(() => {
     async function initializeContract() {
-      // Initialize contract and signer
       const contract = new Contract();
       const signer = new Signer();
-
-      // Set contract and signer in state
       setContract(contract);
       setSigner(signer);
-
-      // Check if user can mint coins
-      const isEligible = await checkEligibility(); // Function to check eligibility
+      const isEligible = await checkEligibility();
       setCanMint(isEligible);
 
-      // Fetch user info
       if (userAddress) {
         const balance = await contract.balanceOf(userAddress);
         setUserBalance(balance);
@@ -57,7 +57,6 @@ function App() {
     initializeContract();
   }, [userAddress]);
 
-  // Function to check if user is eligible to mint coins
   const checkEligibility = async () => {
     if (contract && userAddress) {
       const balance = await contract.balanceOf(userAddress);
@@ -79,15 +78,13 @@ function App() {
 
   const handleTokenMint = async () => {
     if (contract && signer && canMint) {
-      // Call the mint function of the smart contract
-      await contract.mint(userAddress, 100); // Mint 100 tokens for the user
+      await contract.mint(userAddress, 100);
       setTokenMinted(true);
     }
   };
 
   const handleFetchDAOProposals = async () => {
     if (contract) {
-      // Fetch DAO proposals from the smart contract
       const proposals = await contract.getProposals();
       setDAOProposals(proposals);
     }
@@ -116,7 +113,6 @@ function App() {
   const handleClaimRewards = async () => {
     if (contract && signer) {
       await contract.claimReward(userAddress);
-      // Update user balance after claiming rewards
       const balance = await contract.balanceOf(userAddress);
       setUserBalance(balance);
     }
@@ -125,52 +121,34 @@ function App() {
   return (
     <div className="App">
       <h1>Decentralized Learning DApp</h1>
-      <div>
-        <label htmlFor="userAddress">User Address:</label>
-        <input type="text" id="userAddress" value={userAddress} onChange={handleUserAddressChange} />
-        <button onClick={handleUserBalanceCheck}>Check Balance</button>
-      </div>
-      {userBalance > 0 && <p>Balance: {userBalance}</p>}
-      <div>
-        <button onClick={handleTokenMint} disabled={!canMint}>Mint Tokens</button>
-        {tokenMinted && <p>Tokens successfully minted!</p>}
-      </div>
-      <div>
-        <h2>DAO Governance</h2>
-        <button onClick={handleFetchDAOProposals}>Fetch Proposals</button>
-        <ul>
-          {daoProposals.map((proposal, index) => (
-            <li key={index} onClick={() => handleSelectProposal(proposal)}>
-              {proposal.title}
-            </li>
-          ))}
-        </ul>
-        {selectedProposal && (
-          <div>
-            <h3>{selectedProposal.title}</h3>
-            <p>{selectedProposal.description}</p>
-            <button>Vote</button>
-          </div>
-        )}
-      </div>
-      <div>
-        <h2>Staking</h2>
-        <p>Staked Tokens: {stakedTokens}</p>
-        <button onClick={() => handleStakeTokens(50)}>Stake 50 Tokens</button>
-        <button onClick={() => handleUnstakeTokens(50)}>Unstake 50 Tokens</button>
-        <button onClick={handleClaimRewards}>Claim Rewards</button>
-      </div>
-      <div>
-        <h2>User Info</h2>
-        <p>Name: {userName}</p>
-        <p>Completed Modules: {activity.completedModules}</p>
-        <p>Discussions: {activity.discussions}</p>
-        <p>Content Created: {activity.contentCreated}</p>
-        <p>Content Updated: {activity.contentUpdated}</p>
-        <p>Content Deleted: {activity.contentDeleted}</p>
-      </div>
+      <UserAddressInput
+        userAddress={userAddress}
+        onAddressChange={handleUserAddressChange}
+        onBalanceCheck={handleUserBalanceCheck}
+      />
+      <UserBalance balance={userBalance} />
+      <TokenMinting
+        canMint={canMint}
+        onMint={handleTokenMint}
+        tokenMinted={tokenMinted}
+      />
+      <DAOProposals
+        proposals={daoProposals}
+        onFetchProposals={handleFetchDAOProposals}
+        onSelectProposal={handleSelectProposal}
+        selectedProposal={selectedProposal}
+      />
+      <Staking
+        stakedTokens={stakedTokens}
+        onStake={handleStakeTokens}
+        onUnstake={handleUnstakeTokens}
+        onClaimRewards={handleClaimRewards}
+      />
+      <UserInfo name={userName} activity={activity} />
     </div>
   );
 }
 
 export default App;
+
+
