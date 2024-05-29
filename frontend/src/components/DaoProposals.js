@@ -1,7 +1,7 @@
 import React from 'react';
 
 const DAOProposals = ({ proposals, onFetchProposals, onSelectProposal, selectedProposal }) => (
-  <div>
+  <div className="dao-proposals">
     <h2>DAO Governance</h2>
     <button onClick={onFetchProposals}>Fetch Proposals</button>
     <ul>
@@ -12,7 +12,7 @@ const DAOProposals = ({ proposals, onFetchProposals, onSelectProposal, selectedP
       ))}
     </ul>
     {selectedProposal && (
-      <div>
+      <div className="selected-proposal">
         <h3>{selectedProposal.title}</h3>
         <p>{selectedProposal.description}</p>
         <button>Vote</button>
