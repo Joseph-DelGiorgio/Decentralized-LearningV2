@@ -11,6 +11,15 @@ function App() {
   const [canMint, setCanMint] = useState(false); // State to track if user can mint coins
   const [daoProposals, setDAOProposals] = useState([]);
   const [selectedProposal, setSelectedProposal] = useState(null);
+  const [stakedTokens, setStakedTokens] = useState(0);
+  const [userName, setUserName] = useState('');
+  const [activity, setActivity] = useState({
+    completedModules: 0,
+    discussions: 0,
+    contentCreated: 0,
+    contentUpdated: 0,
+    contentDeleted: 0,
+  });
 
   useEffect(() => {
     async function initializeContract() {
@@ -25,17 +34,36 @@ function App() {
       // Check if user can mint coins
       const isEligible = await checkEligibility(); // Function to check eligibility
       setCanMint(isEligible);
+
+      // Fetch user info
+      if (userAddress) {
+        const balance = await contract.balanceOf(userAddress);
+        setUserBalance(balance);
+        const info = await contract.getUserInfo(userAddress);
+        setUserName(info.name);
+        const stakedDetails = await contract.getStakerDetails(userAddress);
+        setStakedTokens(stakedDetails[0]);
+        const activityDetails = await contract.getActivity(userAddress);
+        setActivity({
+          completedModules: activityDetails[0],
+          discussions: activityDetails[1],
+          contentCreated: activityDetails[2],
+          contentUpdated: activityDetails[3],
+          contentDeleted: activityDetails[4],
+        });
+      }
     }
 
     initializeContract();
-  }, []);
+  }, [userAddress]);
 
   // Function to check if user is eligible to mint coins
   const checkEligibility = async () => {
-    // Logic to check if user has completed academic work or learning activity
-    // For now, let's assume user needs to have a balance of at least 100 tokens to be eligible
-    const balance = await contract.balanceOf(userAddress);
-    return balance >= 100;
+    if (contract && userAddress) {
+      const balance = await contract.balanceOf(userAddress);
+      return balance >= 100;
+    }
+    return false;
   };
 
   const handleUserAddressChange = (event) => {
@@ -69,6 +97,31 @@ function App() {
     setSelectedProposal(proposal);
   };
 
+  const handleStakeTokens = async (amount) => {
+    if (contract && signer) {
+      await contract.stakeTokens(userAddress, amount);
+      const stakedDetails = await contract.getStakerDetails(userAddress);
+      setStakedTokens(stakedDetails[0]);
+    }
+  };
+
+  const handleUnstakeTokens = async (amount) => {
+    if (contract && signer) {
+      await contract.unstakeTokens(userAddress, amount);
+      const stakedDetails = await contract.getStakerDetails(userAddress);
+      setStakedTokens(stakedDetails[0]);
+    }
+  };
+
+  const handleClaimRewards = async () => {
+    if (contract && signer) {
+      await contract.claimReward(userAddress);
+      // Update user balance after claiming rewards
+      const balance = await contract.balanceOf(userAddress);
+      setUserBalance(balance);
+    }
+  };
+
   return (
     <div className="App">
       <h1>Decentralized Learning DApp</h1>
@@ -99,6 +152,22 @@ function App() {
             <button>Vote</button>
           </div>
         )}
+      </div>
+      <div>
+        <h2>Staking</h2>
+        <p>Staked Tokens: {stakedTokens}</p>
+        <button onClick={() => handleStakeTokens(50)}>Stake 50 Tokens</button>
+        <button onClick={() => handleUnstakeTokens(50)}>Unstake 50 Tokens</button>
+        <button onClick={handleClaimRewards}>Claim Rewards</button>
+      </div>
+      <div>
+        <h2>User Info</h2>
+        <p>Name: {userName}</p>
+        <p>Completed Modules: {activity.completedModules}</p>
+        <p>Discussions: {activity.discussions}</p>
+        <p>Content Created: {activity.contentCreated}</p>
+        <p>Content Updated: {activity.contentUpdated}</p>
+        <p>Content Deleted: {activity.contentDeleted}</p>
       </div>
     </div>
   );
