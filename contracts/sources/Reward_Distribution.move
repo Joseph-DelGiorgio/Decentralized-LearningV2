@@ -5,10 +5,10 @@ module reward_distribution::RewardDistribution {
     use sui::event::emit;
     use sui::signer::Signer;
     use sui::account::Account;
-
     use token::Token;
 
     use ContentManagement::{Content, UploadContentEvent, UpdateContentEvent, DeleteContentEvent};
+    use reward::AdvancedRewardDistribution;
 
     struct UserActivity has key, store {
         id: UID,
@@ -77,16 +77,25 @@ module reward_distribution::RewardDistribution {
         });
     }
 
-    // Distribute rewards based on recorded activity.
+    // Distribute rewards based on recorded activity and contributions.
     public entry fun distribute_rewards(user: &signer, ctx: &mut TxContext) {
-        let activity = borrow_global_mut<UserActivity>(signer::address_of(user));
+        let activity = borrow_global<UserActivity>(signer::address_of(user));
         let total_rewards = activity.completed_modules * 10 
                             + activity.discussions * 5 
                             + activity.content_created * 20 
                             + activity.content_updated * 10 
                             + activity.content_deleted * 5;
-        Token::mint(user, total_rewards, ctx);
-        emit<DistributeRewardsEvent>(DistributeRewardsEvent { user: signer::address_of(user), total_rewards });
+
+        // Get additional rewards from the AdvancedRewardDistribution module
+        let contribution = borrow_global<reward::AdvancedRewardDistribution::UserContribution>(signer::address_of(user));
+        let additional_rewards = contribution.content_created * 10 
+                                 + contribution.discussions_participated * 5 
+                                 + contribution.modules_completed * 15;
+
+        let combined_rewards = total_rewards + additional_rewards;
+
+        Token::mint(user, combined_rewards, ctx);
+        emit<DistributeRewardsEvent>(DistributeRewardsEvent { user: signer::address_of(user), total_rewards: combined_rewards });
     }
 
     // View user activity details.
@@ -99,58 +108,5 @@ module reward_distribution::RewardDistribution {
             activity.content_updated, 
             activity.content_deleted
         )
-    }
-}
-
-module reward::AdvancedRewardDistribution {
-    use sui::object::{Self, ID, UID};
-    use sui::tx_context::TxContext;
-    use sui::event::emit;
-    use sui::signer::Signer;
-    use sui::account::Account;
-    use token::Token;
-
-    struct UserContribution has key, store {
-        id: UID,
-        content_created: u64,
-        discussions_participated: u64,
-        modules_completed: u64,
-    }
-
-    struct ContributionEvent has key {
-        user: address,
-        content_created: u64,
-        discussions_participated: u64,
-        modules_completed: u64,
-    }
-
-    struct RewardDistributionEvent has key {
-        user: address,
-        reward: u64,
-    }
-
-    // Record user contribution
-    public entry fun record_contribution(user: &signer, content: u64, discussions: u64, modules: u64, ctx: &mut TxContext) {
-        let contribution = UserContribution {
-            id: tx_context::new_id(ctx),
-            content_created: content,
-            discussions_participated: discussions,
-            modules_completed: modules,
-        };
-        move_to(user, contribution);
-        emit<ContributionEvent>(ContributionEvent { 
-            user: signer::address_of(user), 
-            content_created: content, 
-            discussions_participated: discussions, 
-            modules_completed: modules 
-        });
-    }
-
-    // Distribute rewards based on contributions
-    public entry fun distribute_rewards(user: &signer, ctx: &mut TxContext) {
-        let contribution = borrow_global<UserContribution>(signer::address_of(user));
-        let reward = contribution.content_created * 10 + contribution.discussions_participated * 5 + contribution.modules_completed * 15;
-        Token::mint(user, reward, ctx);
-        emit<RewardDistributionEvent>(RewardDistributionEvent { user: signer::address_of(user), reward });
     }
 }
