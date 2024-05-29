@@ -5,7 +5,7 @@ module UserManagement {
     use sui::event::emit;
 
     use reward_distribution::RewardDistribution;
-    
+
     struct User has key, store {
         id: UID,
         name: vector<u8>,
@@ -81,3 +81,4 @@ module UserManagement {
         RewardDistribution::distribute_rewards(account, ctx);
     }
 }
+
