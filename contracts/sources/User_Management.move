@@ -45,8 +45,8 @@ module UserManagement {
     }
 
     // Get user information.
-    public fun get_user_info(account: &signer): (ID, vector<u8>, u64, u64) {
-        let user = borrow_global<User>(Signer::address_of(account));
+    public fun get_user_info(account: address): (ID, vector<u8>, u64, u64) {
+        let user = borrow_global<User>(account);
         (user.id.id, user.name, user.tokens, user.registered_at)
     }
 
