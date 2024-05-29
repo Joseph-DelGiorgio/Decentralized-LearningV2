@@ -1,7 +1,7 @@
 import React from 'react';
 
 const UserInfo = ({ name, activity }) => (
-  <div>
+  <div className="user-info-container">
     <h2>User Info</h2>
     <p>Name: {name}</p>
     <p>Completed Modules: {activity.completedModules}</p>
