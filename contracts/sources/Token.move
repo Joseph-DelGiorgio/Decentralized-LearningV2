@@ -80,4 +80,3 @@ module token::Token {
         token.supply
     }
 }
-
