@@ -3,6 +3,7 @@ module token::Token {
     use sui::tx_context::TxContext;
     use sui::event::emit;
     use sui::balance::{Self, Balance};
+    use sui::signer;
 
     struct Token has key, store {
         id: UID,
@@ -47,7 +48,7 @@ module token::Token {
     // Transfer tokens from the sender's account to the receiver's account.
     public entry fun transfer(sender: &signer, receiver: address, amount: u64, ctx: &mut TxContext) {
         let sender_token = borrow_global_mut<Token>(signer::address_of(sender));
-        assert!(sender_token.supply >= amount, 1);
+        assert!(sender_token.supply >= amount, 1, "Insufficient balance");
 
         sender_token.supply = sender_token.supply - amount;
 
@@ -65,7 +66,7 @@ module token::Token {
     // Burn tokens from the specified account's supply.
     public entry fun burn(account: &signer, amount: u64, ctx: &mut TxContext) {
         let token = borrow_global_mut<Token>(signer::address_of(account));
-        assert!(token.supply >= amount, 2);
+        assert!(token.supply >= amount, 2, "Insufficient balance to burn");
         token.supply = token.supply - amount;
         emit<BurnEvent>(BurnEvent { account: signer::address_of(account), amount });
     }
@@ -79,3 +80,4 @@ module token::Token {
         token.supply
     }
 }
+
