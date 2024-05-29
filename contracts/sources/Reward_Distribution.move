@@ -102,3 +102,55 @@ module reward_distribution::RewardDistribution {
     }
 }
 
+module reward::AdvancedRewardDistribution {
+    use sui::object::{Self, ID, UID};
+    use sui::tx_context::TxContext;
+    use sui::event::emit;
+    use sui::signer::Signer;
+    use sui::account::Account;
+    use token::Token;
+
+    struct UserContribution has key, store {
+        id: UID,
+        content_created: u64,
+        discussions_participated: u64,
+        modules_completed: u64,
+    }
+
+    struct ContributionEvent has key {
+        user: address,
+        content_created: u64,
+        discussions_participated: u64,
+        modules_completed: u64,
+    }
+
+    struct RewardDistributionEvent has key {
+        user: address,
+        reward: u64,
+    }
+
+    // Record user contribution
+    public entry fun record_contribution(user: &signer, content: u64, discussions: u64, modules: u64, ctx: &mut TxContext) {
+        let contribution = UserContribution {
+            id: tx_context::new_id(ctx),
+            content_created: content,
+            discussions_participated: discussions,
+            modules_completed: modules,
+        };
+        move_to(user, contribution);
+        emit<ContributionEvent>(ContributionEvent { 
+            user: signer::address_of(user), 
+            content_created: content, 
+            discussions_participated: discussions, 
+            modules_completed: modules 
+        });
+    }
+
+    // Distribute rewards based on contributions
+    public entry fun distribute_rewards(user: &signer, ctx: &mut TxContext) {
+        let contribution = borrow_global<UserContribution>(signer::address_of(user));
+        let reward = contribution.content_created * 10 + contribution.discussions_participated * 5 + contribution.modules_completed * 15;
+        Token::mint(user, reward, ctx);
+        emit<RewardDistributionEvent>(RewardDistributionEvent { user: signer::address_of(user), reward });
+    }
+}
