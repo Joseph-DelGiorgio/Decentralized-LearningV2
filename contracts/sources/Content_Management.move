@@ -105,6 +105,8 @@ module ContentManagement {
 }
 
 
+
+
 module content::ContentValidation {
     use sui::object::{Self, ID, UID};
     use sui::tx_context::TxContext;
@@ -126,7 +128,14 @@ module content::ContentValidation {
 
     // Rate content
     public entry fun rate_content(account: &signer, content_id: ID, rating: u64, ctx: &mut TxContext) {
-        let content_rating = borrow_global_mut<ContentRating>(content_id);
+        let content_rating = if (exists<ContentRating>(content_id)) {
+            borrow_global_mut<ContentRating>(content_id)
+        } else {
+            let id = tx_context::new_id(ctx);
+            move_to(account, ContentRating { id, content_id, rating: 0, num_ratings: 0 });
+            borrow_global_mut<ContentRating>(content_id)
+        };
+
         content_rating.rating = (content_rating.rating * content_rating.num_ratings + rating) / (content_rating.num_ratings + 1);
         content_rating.num_ratings = content_rating.num_ratings + 1;
         emit<RateContentEvent>(RateContentEvent { rater: signer::address_of(account), content_id, rating });
@@ -138,3 +147,4 @@ module content::ContentValidation {
         content_rating.rating
     }
 }
+
