@@ -103,3 +103,38 @@ module ContentManagement {
         // Real implementation would require proper storage and indexing solutions.
     }
 }
+
+
+module content::ContentValidation {
+    use sui::object::{Self, ID, UID};
+    use sui::tx_context::TxContext;
+    use sui::event::emit;
+    use sui::signer::Signer;
+
+    struct ContentRating has key, store {
+        id: UID,
+        content_id: ID,
+        rating: u64,
+        num_ratings: u64,
+    }
+
+    struct RateContentEvent has key {
+        rater: address,
+        content_id: ID,
+        rating: u64,
+    }
+
+    // Rate content
+    public entry fun rate_content(account: &signer, content_id: ID, rating: u64, ctx: &mut TxContext) {
+        let content_rating = borrow_global_mut<ContentRating>(content_id);
+        content_rating.rating = (content_rating.rating * content_rating.num_ratings + rating) / (content_rating.num_ratings + 1);
+        content_rating.num_ratings = content_rating.num_ratings + 1;
+        emit<RateContentEvent>(RateContentEvent { rater: signer::address_of(account), content_id, rating });
+    }
+
+    // Get content rating
+    public fun get_content_rating(content_id: ID): u64 {
+        let content_rating = borrow_global<ContentRating>(content_id);
+        content_rating.rating
+    }
+}
