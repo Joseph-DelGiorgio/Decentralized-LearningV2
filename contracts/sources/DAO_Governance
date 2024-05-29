@@ -20,13 +20,14 @@ This contract aligns with the goals described in the white paper by fostering co
 */
 
 module governance::Governance {
-
-    use sui::token::{Token};
-    use sui::object::{Object, gen_id};
-    use sui::account::{Account};
+    use sui::token::Token;
+    use sui::object::{Self, gen_id};
+    use sui::account::Account;
     use sui::execution_context::ExecutionContext;
     use sui::vector::Vector;
     use sui::tx_context::TxContext;
+    use sui::signer::Signer;
+    use sui::event::emit;
 
     struct Proposal has key, store {
         id: u64,
@@ -42,6 +43,23 @@ module governance::Governance {
         support: bool,
     }
 
+    struct CreateProposalEvent has key {
+        proposal_id: u64,
+        creator: address,
+        description: vector<u8>,
+    }
+
+    struct VoteEvent has key {
+        proposal_id: u64,
+        voter: address,
+        support: bool,
+    }
+
+    struct ExecuteProposalEvent has key {
+        proposal_id: u64,
+        executor: address,
+    }
+
     public entry fun create_proposal(account: &signer, id: u64, description: vector<u8>, ctx: &mut TxContext) {
         let proposal = Proposal {
             id,
@@ -51,6 +69,7 @@ module governance::Governance {
             executed: false,
         };
         move_to(account, proposal);
+        emit<CreateProposalEvent>(CreateProposalEvent { proposal_id: id, creator: signer::address_of(account), description });
         reward_proposal_creation(account, ctx);
     }
 
@@ -58,7 +77,7 @@ module governance::Governance {
         let address = signer::address_of(account);
         let proposal = borrow_global_mut<Proposal>(proposal_id);
 
-        assert!(!has_voted(address, proposal_id), 1);
+        assert!(!has_voted(address, proposal_id), 1, "Already voted");
 
         if (support) {
             proposal.votes_for = proposal.votes_for + 1;
@@ -72,14 +91,16 @@ module governance::Governance {
             support,
         };
         move_to(account, vote);
+        emit<VoteEvent>(VoteEvent { proposal_id, voter: address, support });
         reward_voting(account, ctx);
     }
 
     public entry fun execute_proposal(account: &signer, proposal_id: u64, ctx: &mut TxContext) {
         let proposal = borrow_global_mut<Proposal>(proposal_id);
-        assert!(!proposal.executed, 2);
-        assert!(proposal.votes_for > proposal.votes_against, 3);
+        assert!(!proposal.executed, 2, "Proposal already executed");
+        assert!(proposal.votes_for > proposal.votes_against, 3, "Not enough votes to execute");
         proposal.executed = true;
+        emit<ExecuteProposalEvent>(ExecuteProposalEvent { proposal_id, executor: signer::address_of(account) });
         
         // Proposal execution logic, e.g., token distribution, feature implementation, etc.
         // execute_proposal_logic(proposal_id);
@@ -93,28 +114,12 @@ module governance::Governance {
     // Additional function to reward users for creating proposals
     public entry fun reward_proposal_creation(account: &signer, ctx: &mut TxContext) {
         let reward_amount: u64 = 10; // Example reward amount for creating a proposal
-        token::Token::mint(account, reward_amount, ctx);
+        Token::mint(account, reward_amount, ctx);
     }
 
     // Additional function to reward users for voting
     public entry fun reward_voting(account: &signer, ctx: &mut TxContext) {
         let reward_amount: u64 = 5; // Example reward amount for voting
-        token::Token::mint(account, reward_amount, ctx);
-    }
-
-    // Mock function for minting tokens
-    module sui::token {
-        public entry fun mint(account: &signer, amount: u64, ctx: &mut TxContext) {
-            let token = borrow_global_mut<Token>(signer::address_of(account));
-            token.supply = token.supply + amount;
-            emit<MintEvent>(MintEvent { account: signer::address_of(account), amount });
-        }
-    }
-
-    // Generate unique ID (mock example)
-    module sui::object {
-        public fun gen_id(): u64 {
-            0 // Example placeholder logic
-        }
+        Token::mint(account, reward_amount, ctx);
     }
 }
