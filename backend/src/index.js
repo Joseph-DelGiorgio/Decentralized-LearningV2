@@ -1,16 +1,21 @@
 const express = require('express');
+const bodyParser = require('body-parser');
+
+const userRoutes = require('./routes/userRoutes');
+const tokenRoutes = require('./routes/tokenRoutes');
+const stakingRoutes = require('./routes/stakingRoutes');
+const daoRoutes = require('./routes/daoRoutes');
+
 const app = express();
-const apiRoutes = require('./api');
-const authRoutes = require('./auth');
+const port = process.env.PORT || 5000;
 
-// Middleware
-app.use(express.json());
+app.use(bodyParser.json());
 
-// Routes
-app.use('/api', apiRoutes);
-app.use('/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/tokens', tokenRoutes);
+app.use('/api/staking', stakingRoutes);
+app.use('/api/dao', daoRoutes);
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });
