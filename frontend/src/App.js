@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Contract, Signer } from 'sui-move';
+import axios from 'axios';
 import './App.css';
 import UserAddressInput from './components/UserAddressInput';
 import UserBalance from './components/UserBalance';
@@ -9,8 +9,6 @@ import Staking from './components/Staking';
 import UserInfo from './components/UserInfo';
 
 function App() {
-  const [contract, setContract] = useState(null);
-  const [signer, setSigner] = useState(null);
   const [userAddress, setUserAddress] = useState('');
   const [userBalance, setUserBalance] = useState(0);
   const [tokenMinted, setTokenMinted] = useState(false);
@@ -28,65 +26,77 @@ function App() {
   });
 
   useEffect(() => {
-    async function initializeContract() {
-      const contract = new Contract();
-      const signer = new Signer();
-      setContract(contract);
-      setSigner(signer);
-      const isEligible = await checkEligibility();
-      setCanMint(isEligible);
-
+    async function fetchData() {
       if (userAddress) {
-        const balance = await contract.balanceOf(userAddress);
-        setUserBalance(balance);
-        const info = await contract.getUserInfo(userAddress);
-        setUserName(info.name);
-        const stakedDetails = await contract.getStakerDetails(userAddress);
-        setStakedTokens(stakedDetails[0]);
-        const activityDetails = await contract.getActivity(userAddress);
-        setActivity({
-          completedModules: activityDetails[0],
-          discussions: activityDetails[1],
-          contentCreated: activityDetails[2],
-          contentUpdated: activityDetails[3],
-          contentDeleted: activityDetails[4],
-        });
+        await fetchUserInfo();
+        await fetchUserBalance();
+        await fetchUserActivity();
       }
     }
 
-    initializeContract();
+    fetchData();
   }, [userAddress]);
 
-  const checkEligibility = async () => {
-    if (contract && userAddress) {
-      const balance = await contract.balanceOf(userAddress);
-      return balance >= 100;
+  const fetchUserInfo = async () => {
+    try {
+      const response = await axios.get(`/api/users/${userAddress}`);
+      const data = response.data;
+      setUserName(data.name);
+    } catch (error) {
+      console.error('Error fetching user info:', error);
     }
-    return false;
+  };
+
+  const fetchUserBalance = async () => {
+    try {
+      const response = await axios.get(`/api/tokens/balance/${userAddress}`);
+      const balance = response.data.balance;
+      setUserBalance(balance);
+      setCanMint(balance >= 100);
+    } catch (error) {
+      console.error('Error fetching user balance:', error);
+    }
+  };
+
+  const fetchUserActivity = async () => {
+    try {
+      const response = await axios.get(`/api/users/activity/${userAddress}`);
+      const activity = response.data;
+      setActivity({
+        completedModules: activity.completedModules,
+        discussions: activity.discussions,
+        contentCreated: activity.contentCreated,
+        contentUpdated: activity.contentUpdated,
+        contentDeleted: activity.contentDeleted,
+      });
+    } catch (error) {
+      console.error('Error fetching user activity:', error);
+    }
   };
 
   const handleUserAddressChange = (event) => {
     setUserAddress(event.target.value);
   };
 
-  const handleUserBalanceCheck = async () => {
-    if (contract && userAddress) {
-      const balance = await contract.balanceOf(userAddress);
-      setUserBalance(balance);
-    }
-  };
-
   const handleTokenMint = async () => {
-    if (contract && signer && canMint) {
-      await contract.mint(userAddress, 100);
+    try {
+      await axios.post('/api/tokens/mint', {
+        address: userAddress,
+        amount: 100,
+      });
       setTokenMinted(true);
+      await fetchUserBalance();
+    } catch (error) {
+      console.error('Error minting tokens:', error);
     }
   };
 
   const handleFetchDAOProposals = async () => {
-    if (contract) {
-      const proposals = await contract.getProposals();
-      setDAOProposals(proposals);
+    try {
+      const response = await axios.get('/api/dao/proposals');
+      setDAOProposals(response.data);
+    } catch (error) {
+      console.error('Error fetching DAO proposals:', error);
     }
   };
 
@@ -95,26 +105,39 @@ function App() {
   };
 
   const handleStakeTokens = async (amount) => {
-    if (contract && signer) {
-      await contract.stakeTokens(userAddress, amount);
-      const stakedDetails = await contract.getStakerDetails(userAddress);
-      setStakedTokens(stakedDetails[0]);
+    try {
+      await axios.post('/api/staking/stake', {
+        address: userAddress,
+        amount,
+      });
+      await fetchUserBalance();
+      await fetchUserActivity();
+    } catch (error) {
+      console.error('Error staking tokens:', error);
     }
   };
 
   const handleUnstakeTokens = async (amount) => {
-    if (contract && signer) {
-      await contract.unstakeTokens(userAddress, amount);
-      const stakedDetails = await contract.getStakerDetails(userAddress);
-      setStakedTokens(stakedDetails[0]);
+    try {
+      await axios.post('/api/staking/unstake', {
+        address: userAddress,
+        amount,
+      });
+      await fetchUserBalance();
+      await fetchUserActivity();
+    } catch (error) {
+      console.error('Error unstaking tokens:', error);
     }
   };
 
   const handleClaimRewards = async () => {
-    if (contract && signer) {
-      await contract.claimReward(userAddress);
-      const balance = await contract.balanceOf(userAddress);
-      setUserBalance(balance);
+    try {
+      await axios.post('/api/staking/claim', {
+        address: userAddress,
+      });
+      await fetchUserBalance();
+    } catch (error) {
+      console.error('Error claiming rewards:', error);
     }
   };
 
@@ -124,7 +147,7 @@ function App() {
       <UserAddressInput
         userAddress={userAddress}
         onAddressChange={handleUserAddressChange}
-        onBalanceCheck={handleUserBalanceCheck}
+        onBalanceCheck={fetchUserBalance}
       />
       <UserBalance balance={userBalance} />
       <TokenMinting
@@ -150,5 +173,6 @@ function App() {
 }
 
 export default App;
+
 
 
